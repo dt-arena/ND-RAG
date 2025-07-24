@@ -84,31 +84,39 @@ def rerank_results(query, results, model_name='cross-encoder/ms-marco-MiniLM-L-6
     else:
         scaled_scores = np.zeros_like(scores)
 
-    # Add scores to the results, with a boost for function name similarity
+    # Check if the query is likely a function name search (single word)
+    is_name_query = ' ' not in query.strip()
+
     for i, result in enumerate(results):
         function_name = extract_function_name(result['function_source'])
         rerank_score = scaled_scores[i]
         
+        function_name_sim = 0
         if function_name:
-            # Use a fuzzy match for the function name boost
-            function_name_sim = fuzz.partial_ratio(query.lower(), function_name.lower()) / 100.0
-            
-            # Blend the rerank score with the function name similarity
-            # Give a significant weight to the name similarity
-            blend_factor = 0.4 
-            final_score = (1 - blend_factor) * rerank_score + blend_factor * function_name_sim
-            
-            # If the function name is an exact match, push the score even higher
-            if query.strip().lower() == function_name.strip().lower():
-                final_score = final_score + (1 - final_score) * 0.9 # Boost towards 1.0
+            function_name_sim = fuzz.ratio(query.lower(), function_name.lower()) / 100.0
+        
+        if is_name_query:
+            # For single-word queries, the score is mostly the name similarity.
+            # The rerank_score from the semantic search acts as a small boost.
+            final_score = function_name_sim * 0.9 + rerank_score * 0.1
         else:
-            final_score = rerank_score
+            # For multi-word queries, blend the scores
+            adjustment = (function_name_sim - 0.5) * 0.5
+            final_score = rerank_score + adjustment
+
+        # If the function name is an exact match, push the score to the top
+        if function_name and query.strip().lower() == function_name.strip().lower():
+            final_score = 1.0
             
-        results[i]['rerank_score'] = final_score
+        results[i]['rerank_score'] = np.clip(final_score, 0, 1)
         
     # Sort by the new final score
     results.sort(key=lambda x: x['rerank_score'], reverse=True)
     
+    # Filter out results with very low scores, especially for name queries
+    if is_name_query:
+        results = [r for r in results if r['rerank_score'] > 0.3]
+
     return results[:top_k]
 
 def main():
