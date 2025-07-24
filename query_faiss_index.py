@@ -77,11 +77,36 @@ def rerank_results(query, results, model_name='cross-encoder/ms-marco-MiniLM-L-6
     # Get scores from the cross-encoder
     scores = model.predict(pairs)
     
-    # Add scores to the results
+    # Scale scores to a 0-1 range for better differentiation
+    min_score, max_score = np.min(scores), np.max(scores)
+    if max_score > min_score:
+        scaled_scores = (scores - min_score) / (max_score - min_score)
+    else:
+        scaled_scores = np.zeros_like(scores)
+
+    # Add scores to the results, with a boost for function name similarity
     for i, result in enumerate(results):
-        results[i]['rerank_score'] = scores[i]
+        function_name = extract_function_name(result['function_source'])
+        rerank_score = scaled_scores[i]
         
-    # Sort by rerank score
+        if function_name:
+            # Use a fuzzy match for the function name boost
+            function_name_sim = fuzz.partial_ratio(query.lower(), function_name.lower()) / 100.0
+            
+            # Blend the rerank score with the function name similarity
+            # Give a significant weight to the name similarity
+            blend_factor = 0.4 
+            final_score = (1 - blend_factor) * rerank_score + blend_factor * function_name_sim
+            
+            # If the function name is an exact match, push the score even higher
+            if query.strip().lower() == function_name.strip().lower():
+                final_score = final_score + (1 - final_score) * 0.9 # Boost towards 1.0
+        else:
+            final_score = rerank_score
+            
+        results[i]['rerank_score'] = final_score
+        
+    # Sort by the new final score
     results.sort(key=lambda x: x['rerank_score'], reverse=True)
     
     return results[:top_k]
@@ -106,17 +131,14 @@ def main():
     query_embedding = encode_query(args.query)
 
     print("Performing hybrid search...")
-    hybrid_results = hybrid_search(args.query, index, metadata, query_embedding.cpu().numpy(), top_k=100)
+    hybrid_results = hybrid_search(args.query, index, metadata, query_embedding.cpu().numpy(), top_k=200)
 
     print("Re-ranking results...")
-    final_results = rerank_results(args.query, hybrid_results, top_k=args.top_k * 10) # Increased top_k for more candidates
+    final_results = rerank_results(args.query, hybrid_results, top_k=args.top_k)
 
     print(f"\nTop {args.top_k} results:")
     
-    seen_function_names = set()
-    seen_source_files = set()
     displayed_results = 0
-    
     for result in final_results:
         if displayed_results >= args.top_k:
             break
@@ -124,23 +146,20 @@ def main():
         function_name = extract_function_name(result['function_source'])
         source_file = result['source_file']
         
-        if function_name and function_name not in seen_function_names and source_file not in seen_source_files:
-            displayed_results += 1
-            seen_function_names.add(function_name)
-            seen_source_files.add(source_file)
-            
-            print(f"\n{displayed_results}. (Rerank Score: {result['rerank_score']:.4f})")
-            if args.show_scores:
-                print(f"   Hybrid Score: {result['hybrid_score']:.4f}")
-                print(f"   Semantic Score: {result['semantic_score']:.4f}")
-                print(f"   Text Score: {result['text_score']:.4f}")
-                print(f"   Function Name Score: {result['function_name_score']:.4f}")
-            
-            print(f"   Function Name: {function_name}")
-            print(f"   Function: {result['function_source'][:200]}...")
-            print(f"   Test: {result['test_source'][:200]}...")
-            print(f"   Source File: {result['source_file']}")
-            print("-" * 80)
+        displayed_results += 1
+        
+        print(f"\n{displayed_results}. (Rerank Score: {result['rerank_score']:.4f})")
+        if args.show_scores:
+            print(f"   Hybrid Score: {result['hybrid_score']:.4f}")
+            print(f"   Semantic Score: {result['semantic_score']:.4f}")
+            print(f"   Text Score: {result['text_score']:.4f}")
+            print(f"   Function Name Score: {result['function_name_score']:.4f}")
+        
+        print(f"   Function Name: {function_name}")
+        print(f"   Function: {result['function_source'][:200]}...")
+        print(f"   Test: {result['test_source'][:200]}...")
+        print(f"   Source File: {result['source_file']}")
+        print("-" * 80)
 
 if __name__ == '__main__':
     main()
