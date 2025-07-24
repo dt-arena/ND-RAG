@@ -33,6 +33,28 @@ def extract_function_name(function_source):
             return match.group(1)
     return None
 
+def normalize_query(query):
+    """
+    Normalizes a query by replacing likely variable names with a generic 'VAR' token.
+    This helps treat queries like "a + b" and "x + y" as semantically identical.
+    """
+    # A set of common, likely placeholder variable names to be replaced.
+    # This is intentionally kept small to avoid removing meaningful words.
+    PLACEHOLDER_VARS = {'a', 'b', 'c', 'i', 'j', 'k', 'n', 'x', 'y', 'z'}
+
+    # Split the query by non-alphanumeric characters, but keep the delimiters.
+    parts = re.split(r'([^\w])', query)
+    
+    normalized_parts = []
+    for part in parts:
+        # A part is a variable if it's a word and in our placeholder list.
+        if part.isalnum() and part.lower() in PLACEHOLDER_VARS:
+            normalized_parts.append('VAR')
+        else:
+            normalized_parts.append(part)
+            
+    return "".join(normalized_parts)
+
 def calculate_text_similarity(query, text):
     """Calculates the text similarity using fuzzy matching."""
     return fuzz.partial_ratio(query, text) / 100.0
@@ -68,11 +90,19 @@ def rerank_results(query, results, model_name='cross-encoder/ms-marco-MiniLM-L-6
     """Re-ranks the results using a cross-encoder model."""
     model = CrossEncoder(model_name)
     
+    is_name_query = ' ' not in query.strip()
+
+    # For descriptive queries, normalize them to help the model focus on structure
+    if not is_name_query:
+        query_for_encoder = normalize_query(query)
+    else:
+        query_for_encoder = query
+    
     # Prepare pairs for the cross-encoder
     pairs = []
     for result in results:
         combined_text = f"Function: {result['function_source']}\nTest: {result['test_source']}"
-        pairs.append([query, combined_text])
+        pairs.append([query_for_encoder, combined_text])
         
     # Get scores from the cross-encoder
     scores = model.predict(pairs)
@@ -84,8 +114,8 @@ def rerank_results(query, results, model_name='cross-encoder/ms-marco-MiniLM-L-6
     else:
         scaled_scores = np.zeros_like(scores)
 
-    # Check if the query is likely a function name search (single word)
-    is_name_query = ' ' not in query.strip()
+    # Check if the query looks like a code snippet
+    is_code_like_query = any(op in query for op in ['+', '-', '*', '/', '==', '!=', '<', '>'])
 
     for i, result in enumerate(results):
         function_name = extract_function_name(result['function_source'])
@@ -95,12 +125,16 @@ def rerank_results(query, results, model_name='cross-encoder/ms-marco-MiniLM-L-6
         if function_name:
             function_name_sim = fuzz.ratio(query.lower(), function_name.lower()) / 100.0
         
-        if is_name_query:
+        if is_code_like_query:
+            # For code-like queries, we care most about the function body.
+            code_sim = fuzz.token_set_ratio(query, result['function_source']) / 100.0
+            # Heavily weight the code similarity.
+            final_score = code_sim * 0.8 + rerank_score * 0.1 + function_name_sim * 0.1
+        elif is_name_query:
             # For single-word queries, the score is mostly the name similarity.
-            # The rerank_score from the semantic search acts as a small boost.
             final_score = function_name_sim * 0.9 + rerank_score * 0.1
         else:
-            # For multi-word queries, blend the scores
+            # For multi-word descriptive queries, blend the scores.
             adjustment = (function_name_sim - 0.5) * 0.5
             final_score = rerank_score + adjustment
 
@@ -129,20 +163,30 @@ def main():
     if not args.query:
         args.query = input("Enter your query: ")
 
-    print(f"\nQuerying for: {args.query}")
+    query = args.query
+    print(f"\nQuerying for: {query}")
+
+    # Normalize the query if it's a descriptive search, to improve semantic matching
+    if ' ' in query.strip():
+        query_for_semantic_search = normalize_query(query)
+        if query_for_semantic_search != query:
+            print(f"Normalized query for semantic search: {query_for_semantic_search}")
+    else:
+        query_for_semantic_search = query
 
     print("Loading FAISS index and metadata...")
     index = load_faiss_index()
     metadata = load_metadata()
 
     print("Encoding query...")
-    query_embedding = encode_query(args.query)
+    query_embedding = encode_query(query_for_semantic_search)
 
     print("Performing hybrid search...")
-    hybrid_results = hybrid_search(args.query, index, metadata, query_embedding.cpu().numpy(), top_k=200)
+    # Use the original query for text-based similarity, but the normalized embedding
+    hybrid_results = hybrid_search(query, index, metadata, query_embedding.cpu().numpy(), top_k=200)
 
     print("Re-ranking results...")
-    final_results = rerank_results(args.query, hybrid_results, top_k=args.top_k)
+    final_results = rerank_results(query, hybrid_results, top_k=args.top_k)
 
     print(f"\nTop {args.top_k} results:")
     
