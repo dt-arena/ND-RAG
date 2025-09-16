@@ -4,19 +4,26 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 from tqdm import tqdm
 
-# This script generates embeddings for function-test pairs extracted from Python files.
+# This script generates embeddings for function-test pairs extracted from C# files using tree-sitter.
 # It uses the SentenceTransformer library to create embeddings and saves them to a file.
 def load_pairs():
-    """Load function-test pairs from JSON file."""
-    with open('data/pairs/function_test_pairs.json', 'r') as f:
+    """Load function-test pairs from tree-sitter JSON file."""
+    tree_sitter_file = 'data/pairs/function_test_pairs_treesitter.json'
+    
+    if not os.path.exists(tree_sitter_file):
+        raise FileNotFoundError(f"Tree-sitter output file not found: {tree_sitter_file}. Please run extract_pairs.py first.")
+    
+    print(f"Loading pairs from tree-sitter output: {tree_sitter_file}")
+    with open(tree_sitter_file, 'r') as f:
         pairs = json.load(f)
-        # Print the structure of the first pair
-        if pairs:
-            print("Structure of first pair:", json.dumps(pairs[0], indent=2))
-        return pairs
+    
+    # Print the structure of the first pair
+    if pairs:
+        print("Structure of first pair:", json.dumps(pairs[0], indent=2))
+    return pairs
 
 # This function generates embeddings for function-test pairs using the SentenceTransformer library.
-# It combines the function source code and test source code into a single text for each pair,
+# It combines the method source code and test source code into a single text for each pair,
 # and then encodes these texts into embeddings.
 def generate_embeddings(pairs, model_name='all-MiniLM-L6-v2'):
     """Generate embeddings for function-test pairs using sentence-transformers."""
@@ -26,8 +33,8 @@ def generate_embeddings(pairs, model_name='all-MiniLM-L6-v2'):
     # Prepare texts for embedding
     texts = []
     for pair in pairs:
-        # Combine function and test into a single text
-        text = f"Function: {pair['function_source']}\nTest: {pair['test_source']}"
+        # Combine method and test into a single text
+        text = f"Method: {pair['function_source']}\nTest: {pair['test_source']}"
         texts.append(text)
     
     # Generate embeddings

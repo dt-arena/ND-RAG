@@ -2,9 +2,9 @@ import numpy as np
 import faiss
 import json
 import argparse
-import re
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from thefuzz import fuzz
+from tree_sitter_extractor import TreeSitterExtractor
 
 def load_faiss_index(path='data/embeddings/faiss.index'):
     """Loads the FAISS index from the specified path."""
@@ -21,16 +21,18 @@ def encode_query(query, model_name='all-MiniLM-L6-v2'):
     return model.encode([query], convert_to_tensor=True)
 
 def extract_function_name(function_source):
-    """Extracts the function name from the function source code."""
-    patterns = [
-        r'def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(',
-        r'class\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[:\(]',
-        r'async\s+def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
-    ]
-    for pattern in patterns:
+    """Extracts the method name from the C# method source code using tree-sitter."""
+    try:
+        # Use a simple regex fallback for function name extraction in queries
+        # This avoids the overhead of initializing tree-sitter for every query
+        import re
+        pattern = r'(?:public|private|protected|internal)\s+(?:static\s+)?(?:virtual\s+)?(?:override\s+)?(?:async\s+)?(?:void|Task|bool|int|string|float|double|Vector3|Quaternion|GameObject|Transform|MonoBehaviour|ScriptableObject|T|object)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
         match = re.search(pattern, function_source)
         if match:
             return match.group(1)
+    except Exception as e:
+        print(f"Function name extraction failed: {e}")
+    
     return None
 
 def normalize_query(query):
@@ -101,7 +103,7 @@ def rerank_results(query, results, model_name='cross-encoder/ms-marco-MiniLM-L-6
     # Prepare pairs for the cross-encoder
     pairs = []
     for result in results:
-        combined_text = f"Function: {result['function_source']}\nTest: {result['test_source']}"
+        combined_text = f"Method: {result['function_source']}\nTest: {result['test_source']}"
         pairs.append([query_for_encoder, combined_text])
         
     # Get scores from the cross-encoder
@@ -149,7 +151,9 @@ def rerank_results(query, results, model_name='cross-encoder/ms-marco-MiniLM-L-6
     
     # Filter out results with very low scores, especially for name queries
     if is_name_query:
-        results = [r for r in results if r['rerank_score'] > 0.3]
+        print(f"Filtering name query results. Found {len(results)} before filtering.")
+        results = [r for r in results if r['rerank_score'] > 0.1]  # Lowered threshold
+        print(f"After filtering: {len(results)} results remain.")
 
     return results[:top_k]
 
@@ -207,8 +211,8 @@ def main():
             print(f"   Text Score: {result['text_score']:.4f}")
             print(f"   Function Name Score: {result['function_name_score']:.4f}")
         
-        print(f"   Function Name: {function_name}")
-        print(f"   Function: {result['function_source'][:200]}...")
+        print(f"   Method Name: {function_name}")
+        print(f"   Method: {result['function_source'][:200]}...")
         print(f"   Test: {result['test_source'][:200]}...")
         print(f"   Source File: {result['source_file']}")
         print("-" * 80)
