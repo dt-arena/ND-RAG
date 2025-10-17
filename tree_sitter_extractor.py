@@ -190,18 +190,18 @@ class TreeSitterExtractor:
                 
                 test_source = self.find_test_for_function(method_name, test_files)
                 
-                if test_source:
-                    pairs.append({
-                        'function_name': method_name,
-                        'function_source': method_source,
-                        'test_source': test_source,
-                        'source_file': str(file_path),
-                        'modifiers': method['modifiers'],
-                        'return_type': method['return_type'],
-                        'parameters': method['parameters'],
-                        'start_line': method['start_line'],
-                        'end_line': method['end_line']
-                    })
+                # Always include function entry; set test_source to None when not found
+                pairs.append({
+                    'function_name': method_name,
+                    'function_source': method_source,
+                    'test_source': test_source if test_source else None,
+                    'source_file': str(file_path),
+                    'modifiers': method['modifiers'],
+                    'return_type': method['return_type'],
+                    'parameters': method['parameters'],
+                    'start_line': method['start_line'],
+                    'end_line': method['end_line']
+                })
                     
         except Exception as e:
             print(f"Error processing file {file_path}: {str(e)}")

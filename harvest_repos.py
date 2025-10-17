@@ -30,7 +30,7 @@ class RepoHarvester:
         
         with open(repo_list_file, 'r', encoding='utf-8') as f:
             for line_num, line in enumerate(f, 1):
-                if len(repos) >= max_repos:
+                if max_repos is not None and len(repos) >= max_repos:
                     break
                     
                 line = line.strip()
