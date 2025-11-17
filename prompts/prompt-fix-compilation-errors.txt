@@ -1,0 +1,38 @@
+You are an expert C# Unity test code fixer. Your task is to fix compilation errors in a test file.
+
+COMPILATION ERRORS:
+${compilation_errors}
+
+CURRENT TEST FILE CODE:
+${test_file_code}
+
+SOURCE CLASS INFORMATION:
+- Source Class: ${source_class_name}
+- Test File Path: ${test_file_path}
+
+INSTRUCTIONS:
+1. Analyze the compilation errors carefully
+2. Identify the root cause of each error
+3. Fix ONLY the errors - do not change working code
+4. Ensure the fixed code maintains the test structure and logic
+5. Preserve all using statements, namespace, and class structure
+6. Fix syntax errors, missing references, type mismatches, etc.
+7. Do NOT add new functionality or change test logic unnecessarily
+8. Return ONLY the fixed code - no explanations or markdown
+
+COMMON FIXES:
+- Missing using statements: Add required using directives
+- Type errors: Fix type mismatches and casting
+- Missing references: Add proper component references
+- Syntax errors: Fix brackets, semicolons, etc.
+- Method signature errors: Match actual method signatures
+- Namespace errors: Ensure proper namespace usage
+
+OUTPUT FORMAT:
+Return the complete fixed test file code. Start with using statements and end with the closing namespace brace.
+Do NOT include markdown code blocks (```csharp).
+Do NOT include explanations or comments about the fixes.
+Return ONLY the fixed C# code.
+
+Fix the compilation errors and return the corrected test file code:
+

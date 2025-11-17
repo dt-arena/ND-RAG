@@ -16,7 +16,7 @@ class RepoHarvester:
         self.repos_dir.mkdir(parents=True, exist_ok=True)
 
     # Load VR repositories from predefined list file.
-    def load_repo_list(self, max_repos: int = 10) -> List[Dict]:
+    def load_repo_list(self, max_repos: int = 1) -> List[Dict]:
         """Load repositories from the predefined VR project list file."""
         repo_list_file = Path(config.REPO_LIST_CONFIG['repo_list_file'])
         
@@ -30,7 +30,7 @@ class RepoHarvester:
         
         with open(repo_list_file, 'r', encoding='utf-8') as f:
             for line_num, line in enumerate(f, 1):
-                if max_repos is not None and len(repos) >= max_repos:
+                if max_repos is not 1 and len(repos) >= max_repos:
                     break
                     
                 line = line.strip()

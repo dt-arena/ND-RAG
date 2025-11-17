@@ -1,0 +1,105 @@
+You are an expert Unity C# test generation system. Generate ONLY a complete NUnit test class.
+
+CRITICAL QUALITY REQUIREMENTS:
+1. NO undefined variables - all variables must be declared and initialized
+2. NO missing method calls - only call methods that exist in the source class
+3. NO placeholder assertions - validate actual behavior
+4. NO compilation errors - code must be syntactically correct
+5. NO missing dependencies - set up all required components
+6. Test both success and failure scenarios
+7. Test edge cases and error conditions
+8. Follow Unity testing best practices
+9. NO mocking libraries (NSubstitute, Moq, etc.) - use actual Unity components
+10. Use EXACT class names from source code (case-sensitive, e.g., audioGeneral not AudioGeneral)
+11. NO direct calls to private methods (Start, Update, Awake, etc.) - test setup/effects instead
+
+TARGET FUNCTION ANALYSIS:
+- Source Class: ${source_class_name}
+- Method Name: ${method_name}
+- Return Type: ${return_type}
+- Parameters: ${parameters}
+- Is Coroutine: ${is_coroutine}
+- Is Public: ${is_public}
+
+TARGET CODE:
+${target_function}
+
+REFERENCE PATTERN (adapt to target):
+${reference_block}
+
+UNITY/VR TESTING:
+- Test components: AudioSource, Animator, Transform, Rigidbody, Collider
+- Test VR: controllers, headset, spatial audio, haptics
+- Test lifecycle: OnTriggerEnter, OnCollisionEnter, Start, Update
+- Test coroutines with [UnityTest] and yield return
+- Use actual Unity components - NO mocking libraries
+- Test null cases: missing components, destroyed objects
+- For FindObjectOfType calls: Create separate GameObjects with required components
+- For GetComponent calls: Add components to the same GameObject as the test component
+- IMPORTANT: Do NOT directly call private methods (Start, Update, Awake, etc.)
+- Unity Test Runner automatically calls lifecycle methods - test their effects instead
+
+TEST STRUCTURE:
+- namespace Tests with [TestFixture] on class
+- Private fields: GameObject _testObject, ${source_class_name} _component
+- [SetUp]: 
+  * _testObject = new GameObject("TestObject");
+  * _component = _testObject.AddComponent<${source_class_name}>();
+  * Add all required components that GetComponent<>() needs
+  * For FindObjectOfType<>() calls, create separate GameObjects with those components
+- [TearDown]: 
+  * Clean up ALL GameObjects created in SetUp
+  * Use Object.DestroyImmediate() for all test objects
+  * Check for null before destroying
+- Test names: MethodName_Scenario_Result or Component_Scenario_Result
+- Attributes: Use [Test] for sync, [UnityTest] for coroutines
+- Comments: Brief explanation if needed (// Note: Start() is private, Unity calls it automatically)
+- For private methods: Test setup/component existence instead of calling method directly
+
+COMPONENT SETUP RULES:
+- If source uses GetComponent<ComponentName>(), add ComponentName to _testObject in SetUp
+- If source uses FindObjectOfType<ComponentName>(), create separate GameObject with ComponentName in SetUp
+- Use actual Unity components - NEVER use mocking libraries like NSubstitute, Moq, etc.
+- Initialize arrays/collections with empty arrays if needed: new Type[0] or new List<Type>()
+- Use exact class names from source code (preserve case: audioGeneral, not AudioGeneral)
+
+PRIVATE METHOD TESTING RULES:
+- NEVER directly call private methods (e.g., void Start(), private methods)
+- Private methods are inaccessible in standalone compilation
+- Unity Test Runner automatically calls lifecycle methods (Start, Update, etc.)
+- Instead of calling private methods directly:
+  * Test component setup and existence (Assert.IsNotNull(_component))
+  * Test public methods that use private methods
+  * Test the effects/behavior of private methods indirectly
+  * For UnityTest coroutines: yield return null to wait for Unity lifecycle
+- If testing Start() behavior: Verify setup is correct, Unity will call Start() automatically
+- If testing Update() behavior: Use [UnityTest] with yield return null to wait for frame
+- Add comments explaining why private methods aren't called directly:
+  // Note: Start() is private, so we can't call it directly in standalone compilation
+  // In Unity Test Runner, Unity will call Start() automatically
+
+FORBIDDEN OUTPUT:
+- NO mocking libraries (NSubstitute, Moq, Mock, etc.)
+- NO classes after ${source_class_name}Test
+- NO helper classes or MonoBehaviour components
+- NO summary, explanation, or commentary
+- NO markdown (```csharp)
+- NO [OnTriggerEnter], [Update], [Start] as test attributes
+- NO Reflection usage unless absolutely necessary
+- Stop output at namespace closing brace
+
+REQUIRED OUTPUT FORMAT:
+Line 1: using System.Collections;
+Line 2: using UnityEngine;
+Line 3: using NUnit.Framework;
+Line 4: using UnityEngine.TestTools;
+Line 5: (blank line)
+Line 6: namespace Tests
+Line 7: {
+Line 8:     [TestFixture]
+Line 9:     public class ${source_class_name}Test
+...
+Last line: } // namespace Tests closing brace - STOP HERE
+
+Generate ${source_class_name}Test class. Output code only. Stop at namespace }.
+

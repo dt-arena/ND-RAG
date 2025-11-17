@@ -102,6 +102,27 @@ This interactive script will help you create the `.env` file with your GitHub to
 
 ## 🔧 Usage
 
+### 🚀 End-to-End Test Generation (NEW!)
+
+The system now includes a fully automated test case generation orchestrator that combines semantic search with AI-powered test generation:
+
+```bash
+# Generate test for a function by name
+python run_e2e_test_generation.py --target "CalculateDistance" --top-k 3
+
+# Generate test for a function with full code
+python run_e2e_test_generation.py --target "public void HandleGrab(Transform obj) { ... }" --output "MyTest.cs"
+
+# Batch process multiple functions
+python example_usage.py
+```
+
+**Key Features:**
+- **Automatic Reference Discovery**: Finds top-3 similar functions with existing tests
+- **Intelligent Prompt Selection**: Automatically chooses between creating new test files or appending to existing ones
+- **AI-Powered Generation**: Uses GPT-4 to generate contextually appropriate test cases
+- **Batch Processing**: Handle multiple functions in a single run
+
 ### Automated Pipeline (Recommended)
 ```bash
 python quick_start.py
@@ -165,12 +186,16 @@ python query_faiss_index.py --query "public void Update()" --top_k 10
 ND-RAG/
 ├── 📄 Core Scripts
 │   ├── quick_start.py              # Main orchestrator (recommended entry point)
+│   ├── run_e2e_test_generation.py  # End-to-end test generation orchestrator (NEW!)
+│   ├── example_usage.py            # Usage examples for test generation
 │   ├── setup_env.py               # Interactive environment setup
 │   ├── harvest_repos.py           # Repository cloning
 │   ├── extract_pairs.py           # Function-test extraction (tree-sitter)
 │   ├── generate_embeddings.py     # Embedding generation
 │   ├── build_faiss_index.py       # Index building
-│   └── query_faiss_index.py       # Query interface
+│   ├── query_faiss_index.py       # Query interface
+│   ├── query_system.py            # Enhanced semantic query system
+│   └── test_method_generator.py   # AI-powered test generation
 ├── 🔧 Core Modules
 │   ├── tree_sitter_extractor.py   # Tree-sitter based extraction
 │   └── config.py                  # Configuration settings

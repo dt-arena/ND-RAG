@@ -1,7 +1,7 @@
 # Repository List Configuration
 REPO_LIST_CONFIG = {
     'repo_list_file': '../ISSTA2023-VRTesting-ReplPackage/ReplicationPackage/VR_Project_List.txt',
-    'max_repos': None,           # No limit - process all repositories from the list
+    'max_repos': 1,           # No limit - process all repositories from the list
     'description_placeholder': 'VR Project from ISSTA2023 curated list'
 }
 
